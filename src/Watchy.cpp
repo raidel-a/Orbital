@@ -456,46 +456,23 @@ void Watchy::showAbout()
   guiState = APP_STATE;
 }
 
-void Watchy::showBuzz(byte buzzIndex, bool partialRefresh)
+void Watchy::showBuzz(uint8_t interval, bool save)
 {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
   display.setTextColor(GxEPD_WHITE);
   display.setCursor(0, 20);
-
   display.println("Buzz Interval");
-  display.print(settings.vibrateOClock);
-
+  display.println(" ");
+  display.print("Current: ");
+  display.print(interval);
+  display.println("m");
+  display.println(" ");
+  display.println("Press UP or DOWN");
+  display.println("to change");
+  display.println("Press MENU to save");
   display.display(false); // full refresh
-
-  guiState = APP_STATE;
-
-  int16_t x1, y1;
-  uint16_t w, h;
-  int16_t yPos;
-
-  const char *buzzItems[] = {
-      "OFF", "Every Minute", "5 Minutes", "15 Minutes", "30 Minutes", "Hourly"};
-  int buzzItemsLength = sizeof(buzzItems) / sizeof(buzzItems[0]);
-
-  for (int i = 0; i < MENU_LENGTH; i++)
-  {
-    yPos = 40 + MENU_HEIGHT + (MENU_HEIGHT * i);
-    display.setCursor(0, yPos);
-    if (i == buzzIndex)
-    {
-      display.getTextBounds(buzzItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
-      display.setTextColor(GxEPD_BLACK);
-      display.println(buzzItems[i]);
-    }
-    else
-    {
-      display.setTextColor(GxEPD_WHITE);
-      display.println(buzzItems[i]);
-    }
-  }
 
   pinMode(DOWN_BTN_PIN, INPUT);
   pinMode(UP_BTN_PIN, INPUT);
@@ -506,37 +483,54 @@ void Watchy::showBuzz(byte buzzIndex, bool partialRefresh)
   {
     if (digitalRead(MENU_BTN_PIN) == 1)
     {
-      settings.vibrateOClock = buzzIndex;
-      delay(200);
+      // if (save)
+      // {
+        settings.vibrateOClock = interval;
+        // saveSettings();
+        break;
+      // }
+      // else
+      // {
+      //   showMenu(menuIndex, false);
+      //   break;
+      // }
     }
     if (digitalRead(BACK_BTN_PIN) == 1)
     {
+      showMenu(menuIndex, false);
       break;
     }
+
+ // move up or down from 0 to 5 in increments of 1 
+ // create hash table for the intervals 0 to 5, 0 = off, 1 = 1 minute, 2 = 5 minutes, 3 = 15 minutes, 4 = 30 minutes, 5 = 1 hour
     if (digitalRead(DOWN_BTN_PIN) == 1)
     {
-      buzzIndex++;
-      if (buzzIndex > buzzItemsLength - 1)
-      {
-        buzzIndex = 0;
-      }
-      showMenu(buzzIndex, true);
+      interval == 0 ? (interval = 5) : interval -= 1;
+
     }
     if (digitalRead(UP_BTN_PIN) == 1)
     {
-      buzzIndex--;
-      if (buzzIndex < 0)
-      {
-        buzzIndex = buzzItemsLength - 1;
-      }
-      showMenu(buzzIndex, true);
+      interval == 0 ? (interval = 5) : interval += 1;
     }
-    delay(200);
-    // display.display(true); // partial refresh
+    display.setFullWindow();
+    display.fillScreen(GxEPD_WHITE);
+    display.setFont(&FreeMonoBold9pt7b);
+    display.setTextColor(GxEPD_BLACK);
+    display.setCursor(0, 20);
+    display.println("Buzz Interval");
+    display.print("Current: ");
+    display.print(interval);
+    display.println(" ");
+    display.println("Press UP or DOWN");
+    display.println("to change");
+    display.println(" ");
+    display.println("Press MENU to save");
+    display.display(true); // partial refresh
   }
 
-  showMenu(buzzIndex, false);
+  guiState = APP_STATE;
 }
+
 
 void Watchy::vibMotor(uint8_t intervalMs, uint8_t length)
 {
