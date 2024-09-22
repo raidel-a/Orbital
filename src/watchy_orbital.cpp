@@ -25,7 +25,7 @@ void WatchyOrbital::drawWatchFace()
     }
     if (mode == 0 || mode == 1 || mode == 4 || mode == 5)
     {
-        details = false;
+        details = false; 
     }
     else
     {
@@ -132,7 +132,7 @@ void WatchyOrbital::drawWatchHour()
  */
 void WatchyOrbital::drawWatchDay()
 {
-    float dayAngle = 360.0 * (currentTime.Day / 31.0);
+    float dayAngle = 360.0 * (currentTime.Day / (float)DaysPerMonth(currentTime.Year, currentTime.Month));
     int tick = 360 / DaysPerMonth(currentTime.Year, currentTime.Month);
 
     // Draw arcs: black arc, white seperator, black seperators
@@ -175,7 +175,7 @@ void WatchyOrbital::drawWatchMonth()
 
     if (details)
     {
-        drawDetails(monthAngle, 22, shortMonths[currentTime.Month - 1]);
+        drawDetails(monthAngle, 22, shortMonths[currentTime.Month]);
     }
 }
 
@@ -341,9 +341,9 @@ void WatchyOrbital::drawWeather()
         display.setCursor(165, 180);
         display.print(String(currentWeather.temperature) + ((settings.weatherUnit == "metric") ? " C" : " F"));
     }
-    display.setFont(&FreeSansBold9pt7b);
-    display.setCursor(165, 195);
-    display.print(sensor.readTemperature());
+    // display.setFont(&FreeSansBold9pt7b);
+    // display.setCursor(165, 195);
+    // display.print(sensor.readTemperature());
 }
 
 void WatchyOrbital::fillArc2(float start_angle, float end_angle, unsigned int radius, unsigned int width, unsigned int colour, float step)
@@ -531,11 +531,6 @@ void WatchyOrbital::drawDetails(float angle, unsigned int radius, String value)
 {
     unsigned int center_x = 100;
     unsigned int center_y = 100;
-    /*int16_t x1;
-    int16_t y1;
-    uint16_t width;
-    uint16_t height;
-    display.getTextBounds(value, 0, 0, &x1, &y1, &width, &height);*/
 
     // Calculate the end of the circle
     float x = center_x + radius * cos((angle - 90) * DEG2RAD);
@@ -548,20 +543,16 @@ void WatchyOrbital::drawDetails(float angle, unsigned int radius, String value)
     display.setFont();
     display.setCursor(x, y);
 
-
-    if (!twentyFour) {
+    // Check if the value is an hour (1-12 or 0-23) and convert if necessary
+    if (!twentyFour && value.toInt() >= 0 && value.toInt() <= 23) {
         // Convert 24-hour time to 12-hour time
         int hour = value.toInt();
-        // String period = " AM";
         if (hour >= 12) {
-            // period = " PM";
             if (hour > 12) hour -= 12;
         } else if (hour == 0) {
             hour = 12;
         }
-        value = String(hour) 
-        // + period
-        ;
+        value = String(hour);
     }
 
     display.print(value);
@@ -580,7 +571,7 @@ void WatchyOrbital::handleButtonPress()
         {
             RTC.read(currentTime);
             showWatchFace(true);
-            morseTime();
+            // morseTime();
         }
 
         // if (wakeupBit & UP_BTN_MASK) {

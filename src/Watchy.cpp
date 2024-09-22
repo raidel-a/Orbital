@@ -36,43 +36,52 @@ void Watchy::init(String datetime)
     case WATCHFACE_STATE:
       showWatchFace(true); // partial updates on tick
 
-      // if settings.vibrateOClock is 0, it will not vibrate, 1 every minute, 2 every 5 minutes, 3 every 15 minutes, 4 every 30 minutes, 5 every hour
-
+      // if settings.vibrateOClock is 0, it will not vibrate, 1 every hour, 2 every 30 minutes, 3 every 15 minutes, 4 every 5 minutes, 5 every minute.
+      // between 7am and 11pm
+      // at the top of the hour, two long vibrations
+      // at the half hour, one long vibration
+      // at 15 one short vibration
+      // at 45 two short vibrations
       if (settings.vibrateOClock > 0)
       {
-        if (currentTime.Minute == 0 && settings.vibrateOClock == 5)
+        if (currentTime.Minute == 0)
         {
-          vibMotor(75, 4);
-        }
-        else if (currentTime.Minute % 5 == 0 && settings.vibrateOClock == 4)
-        {
-          vibMotor(75, 4);
-        }
-        else if (currentTime.Minute % 15 == 0 && settings.vibrateOClock == 3)
-        {
-          vibMotor(75, 4);
-        }
-        else if (currentTime.Minute % 30 == 0 && settings.vibrateOClock == 2)
-        {
-          vibMotor(75, 4);
-        }
-        else if (settings.vibrateOClock == 1)
-        {
-          vibMotor(75, 4);
+          if (currentTime.Hour >= 7 && currentTime.Hour < 23)
+          {
+            if (settings.vibrateOClock == 1)
+            {
+              vibMotor(75, 4);
+            }
+            else if (settings.vibrateOClock == 2)
+            {
+              if (currentTime.Minute == 30)
+              {
+                vibMotor(75, 4);
+              }
+            }
+            else if (settings.vibrateOClock == 3)
+            {
+              if (currentTime.Minute == 15)
+              {
+                vibMotor(75, 4);
+              }
+            }
+            else if (settings.vibrateOClock == 4)
+            {
+              if (currentTime.Minute == 45)
+              {
+                vibMotor(75, 4);
+              }
+            }
+            else if (settings.vibrateOClock == 5)
+            {
+              vibMotor(75, 4);
+            }
+          }
         }
       }
 
-      // {
-      //   if (currentTime.Minute == 0  ||
-      //       currentTime.Minute == 15 ||
-      //       currentTime.Minute == 30 ||
-      //       currentTime.Minute == 45)
 
-      //   {
-      //     // The RTC wakes us up once per 15 minute
-      //     vibMotor(75, 4);
-      //   }
-      // }
       break;
     case MAIN_MENU_STATE:
       // Return to watchface if in menu for more than one tick
@@ -456,81 +465,90 @@ void Watchy::showAbout()
   guiState = APP_STATE;
 }
 
-void Watchy::showBuzz(uint8_t interval, bool save)
+void Watchy::showBuzz(byte buzzIndex, bool partialRefresh)
 {
-  display.setFullWindow();
-  display.fillScreen(GxEPD_BLACK);
-  display.setFont(&FreeMonoBold9pt7b);
-  display.setTextColor(GxEPD_WHITE);
-  display.setCursor(0, 20);
-  display.println("Buzz Interval");
-  display.println(" ");
-  display.print("Current: ");
-  display.print(interval);
-  display.println("m");
-  display.println(" ");
-  display.println("Press UP or DOWN");
-  display.println("to change");
-  display.println("Press MENU to save");
-  display.display(false); // full refresh
+  guiState = APP_STATE;
 
   pinMode(DOWN_BTN_PIN, INPUT);
   pinMode(UP_BTN_PIN, INPUT);
   pinMode(MENU_BTN_PIN, INPUT);
   pinMode(BACK_BTN_PIN, INPUT);
 
-  while (1)
+  display.setFullWindow();
+  display.fillScreen(GxEPD_BLACK);
+  display.setFont(&FreeMonoBold9pt7b);
+
+  int16_t x1, y1;
+  uint16_t w, h;
+  int16_t yPos;
+
+  // Display the current settings.vibrateOClock
+  display.setCursor(0, MENU_HEIGHT);
+  display.setTextColor(GxEPD_WHITE);
+  display.println("Current setting: " + String(settings.vibrateOClock));
+
+  const char *buzzItems[] = {
+      "No vibration", "every hour", "every 30 minutes",
+      "every 15 minutes", "every 5 minutes", "every minute"};
+  int MenuLength = sizeof(buzzItems) / sizeof(buzzItems[0]);
+
+  for (int i = 0; i < MenuLength; i++)
+  {
+    yPos = MENU_HEIGHT + MENU_HEIGHT + (MENU_HEIGHT * i);
+    display.setCursor(0, yPos);
+    if (i == buzzIndex)
+    {
+      display.getTextBounds(buzzItems[i], 0, yPos, &x1, &y1, &w, &h);
+      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      display.setTextColor(GxEPD_BLACK);
+      display.println(buzzItems[i]);
+    }
+    else
+    {
+      display.setTextColor(GxEPD_WHITE);
+      display.println(buzzItems[i]);
+    }
+  }
+
+  display.display(true);
+
+  while (1 && guiState == APP_STATE)
   {
     if (digitalRead(MENU_BTN_PIN) == 1)
     {
-      // if (save)
-      // {
-        settings.vibrateOClock = interval;
-        // saveSettings();
-        break;
-      // }
-      // else
-      // {
-      //   showMenu(menuIndex, false);
-      //   break;
-      // }
+      settings.vibrateOClock = buzzIndex;
+      // display.display(false); // partial refresh
+      showBuzz(buzzIndex, false);
     }
     if (digitalRead(BACK_BTN_PIN) == 1)
     {
-      showMenu(menuIndex, false);
-      break;
+      // go to void Watchy::showMenu(byte buzzIndex, bool partialRefresh)
+      showMenu(buzzIndex, false);
     }
-
- // move up or down from 0 to 5 in increments of 1 
- // create hash table for the intervals 0 to 5, 0 = off, 1 = 1 minute, 2 = 5 minutes, 3 = 15 minutes, 4 = 30 minutes, 5 = 1 hour
     if (digitalRead(DOWN_BTN_PIN) == 1)
     {
-      interval == 0 ? (interval = 5) : interval -= 1;
-
+      buzzIndex++;
+      if (buzzIndex > MenuLength - 1)
+      {
+        buzzIndex = 0;
+      }
+      showBuzz(buzzIndex, true);
     }
     if (digitalRead(UP_BTN_PIN) == 1)
     {
-      interval == 0 ? (interval = 5) : interval += 1;
+      buzzIndex--;
+      if (buzzIndex < 0)
+      {
+        buzzIndex = MenuLength - 1;
+      }
+      showBuzz(buzzIndex, true);
     }
-    display.setFullWindow();
-    display.fillScreen(GxEPD_WHITE);
-    display.setFont(&FreeMonoBold9pt7b);
-    display.setTextColor(GxEPD_BLACK);
-    display.setCursor(0, 20);
-    display.println("Buzz Interval");
-    display.print("Current: ");
-    display.print(interval);
-    display.println(" ");
-    display.println("Press UP or DOWN");
-    display.println("to change");
-    display.println(" ");
-    display.println("Press MENU to save");
-    display.display(true); // partial refresh
   }
 
-  guiState = APP_STATE;
-}
+  // showMenu(buzzIndex, false);
 
+  // display.display(false); // partial refresh
+}
 
 void Watchy::vibMotor(uint8_t intervalMs, uint8_t length)
 {

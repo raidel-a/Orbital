@@ -43,10 +43,10 @@ typedef struct watchySettings
   // NTP Settings
   String ntpServer;
   int gmtOffset;
-  //
+  
 
   uint8_t vibrateOClock;
-  // uint8_t vibrateLength;
+
 } watchySettings;
 
 class Watchy
