@@ -1,8 +1,13 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// Versioning
+// Define hardware revision
+#define ARDUINO_WATCHY_V20
+
+// Other configurations
 #define WATCHY_LIB_VER "1.4.10"
+#define WIFI_AP_TIMEOUT 60
+#define WIFI_AP_SSID "WatchyAP"
 
 //pins
 #if !defined(ARDUINO_WATCHY_V10) && !defined(ARDUINO_WATCHY_V15) && !defined(ARDUINO_WATCHY_V20)
@@ -10,8 +15,6 @@
 #pragma message "Please install the latest ESP32 Arduino Core (2.0.5+) and choose Watchy as the target board"
 #pragma message "Hardware revision is not defined at the project level, please define in config.h. Defaulting to ARDUINO_WATCHY_V20"
 
-//Change to your board version
-#define ARDUINO_WATCHY_V20
 
 #define MENU_BTN_PIN 26
 #define BACK_BTN_PIN 25
@@ -53,9 +56,6 @@
 //display
 #define DISPLAY_WIDTH 200
 #define DISPLAY_HEIGHT 200
-// wifi
-#define WIFI_AP_TIMEOUT 60
-#define WIFI_AP_SSID    "Watchy AP"
 // menu
 #define WATCHFACE_STATE -1
 #define MAIN_MENU_STATE 0

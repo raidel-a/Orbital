@@ -1,4 +1,5 @@
 #include "Watchy.h"
+#include <Preferences.h>
 
 WatchyRTC Watchy::RTC;
 GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
@@ -19,6 +20,12 @@ RTC_DATA_ATTR char lastSSID[30];
 
 void Watchy::init(String datetime)
 {
+  // Load saved settings from Preferences
+  Preferences prefs;
+  prefs.begin("watchy", false);
+  settings.vibrateOClock = prefs.getUInt("vibrateOClock", settings.vibrateOClock);
+  prefs.end();
+
   esp_sleep_wakeup_cause_t wakeup_reason;
   wakeup_reason = esp_sleep_get_wakeup_cause(); // get wake up reason
   Wire.begin(SDA, SCL);                         // init i2c
@@ -34,54 +41,46 @@ void Watchy::init(String datetime)
     switch (guiState)
     {
     case WATCHFACE_STATE:
-      showWatchFace(true); // partial updates on tick
-
       // if settings.vibrateOClock is 0, it will not vibrate, 1 every hour, 2 every 30 minutes, 3 every 15 minutes, 4 every 5 minutes, 5 every minute.
       // between 7am and 11pm
-      // at the top of the hour, two long vibrations
-      // at the half hour, one long vibration
-      // at 15 one short vibration
-      // at 45 two short vibrations
-      if (settings.vibrateOClock > 0)
+      if (settings.vibrateOClock > 0 && currentTime.Hour >= 7 && currentTime.Hour < 23)
       {
-        if (currentTime.Minute == 0)
-        {
-          if (currentTime.Hour >= 7 && currentTime.Hour < 23)
-          {
-            if (settings.vibrateOClock == 1)
-            {
-              vibMotor(75, 4);
-            }
-            else if (settings.vibrateOClock == 2)
-            {
-              if (currentTime.Minute == 30)
-              {
-                vibMotor(75, 4);
-              }
-            }
-            else if (settings.vibrateOClock == 3)
-            {
-              if (currentTime.Minute == 15)
-              {
-                vibMotor(75, 4);
-              }
-            }
-            else if (settings.vibrateOClock == 4)
-            {
-              if (currentTime.Minute == 45)
-              {
-                vibMotor(75, 4);
-              }
-            }
-            else if (settings.vibrateOClock == 5)
-            {
-              vibMotor(75, 4);
-            }
+          bool shouldVibrate = false;
+          
+          switch(settings.vibrateOClock) {
+              case 0: // Off
+                  shouldVibrate = false;
+                  break;
+              case 5: // Every minute
+                  shouldVibrate = true;
+                  break;
+              case 4: // Every 5 minutes
+                  shouldVibrate = (currentTime.Minute % 5 == 0);
+                  break;
+              case 3: // Every 15 minutes
+                  shouldVibrate = (currentTime.Minute % 15 == 0);
+                  break;
+              case 2: // Every 30 minutes
+                  shouldVibrate = (currentTime.Minute == 0 || currentTime.Minute == 30);
+                  break;
+              case 1: // Every hour
+                  shouldVibrate = (currentTime.Minute == 0);
+                  break;
           }
-        }
+
+          if (shouldVibrate) {
+              if (currentTime.Minute == 0) {
+                  // Double vibration for hour marks
+                  vibMotor(75, 4);
+                  delay(200);
+                  vibMotor(75, 4);
+              } else {
+                  // Single vibration for other intervals
+                  vibMotor(75, 4);
+              }
+          }
       }
-
-
+      showWatchFace(true);
       break;
     case MAIN_MENU_STATE:
       // Return to watchface if in menu for more than one tick
@@ -101,7 +100,6 @@ void Watchy::init(String datetime)
     handleButtonPress();
     break;
   default: // reset
-    RTC.config(datetime);
     _bmaConfig();
     gmtOffset = settings.gmtOffset;
     RTC.read(currentTime);
@@ -117,6 +115,85 @@ void Watchy::init(String datetime)
 
 void Watchy::deepSleep()
 {
+  esp_sleep_wakeup_cause_t wakeup_reason;
+  wakeup_reason = esp_sleep_get_wakeup_cause(); // get wake up reason
+
+  switch (wakeup_reason)
+  {
+  case ESP_SLEEP_WAKEUP_EXT0: // RTC Alarm
+    RTC.read(currentTime);
+    switch (guiState)
+    {
+    case WATCHFACE_STATE:
+      // if settings.vibrateOClock is 0, it will not vibrate, 1 every hour, 2 every 30 minutes, 3 every 15 minutes, 4 every 5 minutes, 5 every minute.
+      // between 7am and 11pm
+      if (settings.vibrateOClock > 0 && currentTime.Hour >= 7 && currentTime.Hour < 23)
+      {
+          bool shouldVibrate = false;
+          
+          switch(settings.vibrateOClock) {
+              case 0: // Off
+                  shouldVibrate = false;
+                  break;
+              case 5: // Every minute
+                  shouldVibrate = true;
+                  break;
+              case 4: // Every 5 minutes
+                  shouldVibrate = (currentTime.Minute % 5 == 0);
+                  break;
+              case 3: // Every 15 minutes
+                  shouldVibrate = (currentTime.Minute % 15 == 0);
+                  break;
+              case 2: // Every 30 minutes
+                  shouldVibrate = (currentTime.Minute == 0 || currentTime.Minute == 30);
+                  break;
+              case 1: // Every hour
+                  shouldVibrate = (currentTime.Minute == 0);
+                  break;
+          }
+
+          if (shouldVibrate) {
+              if (currentTime.Minute == 0) {
+                  // Double vibration for hour marks
+                  vibMotor(75, 4);
+                  delay(200);
+                  vibMotor(75, 4);
+              } else {
+                  // Single vibration for other intervals
+                  vibMotor(75, 4);
+              }
+          }
+      }
+      showWatchFace(true);
+      break;
+    case MAIN_MENU_STATE:
+      // Return to watchface if in menu for more than one tick
+      if (alreadyInMenu)
+      {
+        guiState = WATCHFACE_STATE;
+        showWatchFace(false);
+      }
+      else
+      {
+        alreadyInMenu = true;
+      }
+      break;
+    }
+    break;
+  case ESP_SLEEP_WAKEUP_EXT1: // button Press
+    handleButtonPress();
+    break;
+  default: // reset
+    _bmaConfig();
+    gmtOffset = settings.gmtOffset;
+    RTC.read(currentTime);
+    RTC.read(bootTime);
+    showWatchFace(false); // full update on reset
+    vibMotor(75, 4);
+    // For some reason, seems to be enabled on first boot
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+    break;
+  }
   display.hibernate();
   RTC.clearAlarm(); // resets the alarm flag in the RTC
 
@@ -477,77 +554,111 @@ void Watchy::showBuzz(byte buzzIndex, bool partialRefresh)
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
-
-  int16_t x1, y1;
-  uint16_t w, h;
-  int16_t yPos;
-
-  // Display the current settings.vibrateOClock
-  display.setCursor(0, MENU_HEIGHT);
   display.setTextColor(GxEPD_WHITE);
-  display.println("Current setting: " + String(settings.vibrateOClock));
+  display.setCursor(0, 20);
+  display.println("Buzz Interval");
 
-  const char *buzzItems[] = {
-      "No vibration", "every hour", "every 30 minutes",
-      "every 15 minutes", "every 5 minutes", "every minute"};
-  int MenuLength = sizeof(buzzItems) / sizeof(buzzItems[0]);
+  // Function to update current interval display
+  auto updateCurrentInterval = [&]() {
+    display.fillRect(0, 50, 200, 40, GxEPD_BLACK);
+    display.setCursor(0, 50);
+    display.println("Current Interval:");
+    display.setCursor(0, 70);
+    String currentValue;
+    switch(settings.vibrateOClock) {
+        case 0: currentValue = "Off"; break;
+        case 1: currentValue = "60 min"; break;
+        case 2: currentValue = "30 min"; break;
+        case 3: currentValue = "15 min"; break;
+        case 4: currentValue = "5 min"; break;
+        case 5: currentValue = "1 min"; break;
+    }
+    display.println(currentValue);
+  };
 
-  for (int i = 0; i < MenuLength; i++)
-  {
-    yPos = MENU_HEIGHT + MENU_HEIGHT + (MENU_HEIGHT * i);
-    display.setCursor(0, yPos);
-    if (i == buzzIndex)
-    {
-      display.getTextBounds(buzzItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
-      display.setTextColor(GxEPD_BLACK);
-      display.println(buzzItems[i]);
-    }
-    else
-    {
-      display.setTextColor(GxEPD_WHITE);
-      display.println(buzzItems[i]);
-    }
+  updateCurrentInterval();
+
+  display.setCursor(0, 100);
+  display.println("Change Interval:");
+  display.setCursor(0, 120);
+  String newValue;
+  switch(buzzIndex) {
+      case 0: newValue = "Off"; break;
+      case 1: newValue = "60 min"; break;
+      case 2: newValue = "30 min"; break;
+      case 3: newValue = "15 min"; break;
+      case 4: newValue = "5 min"; break;
+      case 5: newValue = "1 min"; break;
   }
+  display.println(newValue);
+  display.display(false);
 
-  display.display(true);
-
-  while (1 && guiState == APP_STATE)
+  while (1)
   {
     if (digitalRead(MENU_BTN_PIN) == 1)
     {
       settings.vibrateOClock = buzzIndex;
-      // display.display(false); // partial refresh
-      showBuzz(buzzIndex, false);
+      
+      // Save settings using Preferences
+      Preferences prefs;
+      prefs.begin("watchy", false);
+      prefs.putUInt("vibrateOClock", settings.vibrateOClock);
+      prefs.end();
+      
+      // Update the display to show new current interval
+      updateCurrentInterval();
+      display.display(true);
+      delay(1000); // Show the update briefly
+      break;
     }
     if (digitalRead(BACK_BTN_PIN) == 1)
     {
-      // go to void Watchy::showMenu(byte buzzIndex, bool partialRefresh)
-      showMenu(buzzIndex, false);
+      showMenu(menuIndex, false);
+      break;
     }
+
     if (digitalRead(DOWN_BTN_PIN) == 1)
     {
       buzzIndex++;
-      if (buzzIndex > MenuLength - 1)
-      {
+      if (buzzIndex > 5) {
         buzzIndex = 0;
       }
-      showBuzz(buzzIndex, true);
+      display.fillRect(0, 100, 200, 40, GxEPD_BLACK);
+      display.setCursor(0, 100);
+      display.println("Change Interval:");
+      display.setCursor(0, 120);
+      switch(buzzIndex) {
+          case 0: display.println("Off"); break;
+          case 1: display.println("60 min"); break;
+          case 2: display.println("30 min"); break;
+          case 3: display.println("15 min"); break;
+          case 4: display.println("5 min"); break;
+          case 5: display.println("1 min"); break;
+      }
+      display.display(true);
     }
+
     if (digitalRead(UP_BTN_PIN) == 1)
     {
       buzzIndex--;
-      if (buzzIndex < 0)
-      {
-        buzzIndex = MenuLength - 1;
+      if (buzzIndex < 0) {
+        buzzIndex = 5;
       }
-      showBuzz(buzzIndex, true);
+      display.fillRect(0, 100, 200, 40, GxEPD_BLACK);
+      display.setCursor(0, 100);
+      display.println("Change Interval:");
+      display.setCursor(0, 120);
+      switch(buzzIndex) {
+          case 0: display.println("Off"); break;
+          case 1: display.println("60 min"); break;
+          case 2: display.println("30 min"); break;
+          case 3: display.println("15 min"); break;
+          case 4: display.println("5 min"); break;
+          case 5: display.println("1 min"); break;
+      }
+      display.display(true);
     }
   }
-
-  // showMenu(buzzIndex, false);
-
-  // display.display(false); // partial refresh
 }
 
 void Watchy::vibMotor(uint8_t intervalMs, uint8_t length)

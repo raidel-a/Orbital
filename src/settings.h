@@ -10,7 +10,7 @@
 #define WEATHER_UPDATE_INTERVAL 30 //must be greater than 5, measured in minutes
 //NTP Settings
 #define NTP_SERVER "pool.ntp.org"
-#define GMT_OFFSET_SEC 3600 * -4 //New York is UTC -5 EST, -4 EDT, will be overwritten by weather data
+#define GMT_OFFSET_SEC 3600 * -5 //New York is UTC -5 EST, -4 EDT, will be overwritten by weather data
 
 
 watchySettings settings{
@@ -22,7 +22,7 @@ watchySettings settings{
     .weatherUpdateInterval = WEATHER_UPDATE_INTERVAL,
     .ntpServer = NTP_SERVER,
     .gmtOffset = GMT_OFFSET_SEC,
-    .vibrateOClock = 0,
+    .vibrateOClock = 0, // 0=off, 1=hourly, 2=30min, 3=15min, 4=5min, 5=1min
 };
 
 #endif
