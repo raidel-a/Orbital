@@ -1,2 +1,4 @@
 .pio
-.history
+.history/
+.DS_Store
+.vscode/
